@@ -6,8 +6,7 @@ import { defineConfig } from 'vite'
 
 export const isProduction = process.env.NODE_ENV === 'production'
 
-// Set entry point for index.html, from arguments passed
-process.env.PUBLIC_ENTRY_POINT = process.argv[process.argv.length - 1]
+process.env.PUBLIC_ENTRY_POINT = '/src/index.tsx'
 
 const packageAlias = [
   { find: '@', replacement: fileURLToPath(new URL(`src/`, import.meta.url)) },
@@ -16,7 +15,7 @@ const packageAlias = [
   { find: 'ui', replacement: fileURLToPath(new URL(`fe-zen-arch/ui/`, import.meta.url)) }
 ]
 
-const port = parseInt(process.argv[process.argv.length - 2])
+const port = Number(process.env.PORT || 5173)
 
 /** @type {import('vite').UserConfig} */
 const config = {

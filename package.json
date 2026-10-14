@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite -- 5173 src/index.tsx",
-    "build": "NODE_ENV=production npx vite build -- src/index.tsx",
+    "dev": "vite",
+    "build": "vite build",
     "preview": "vite preview",
     "lint": "bash fe-zen-arch/scripts/lint.sh --fix",
     "lint-check": "bash fe-zen-arch/scripts/lint.sh",

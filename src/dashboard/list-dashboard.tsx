@@ -1,5 +1,6 @@
 import { routes } from '@/shared/route-paths'
 import { invoiceTotal, SavedBill } from '@/shipping-bills/model'
+import { loadShippingBills } from '@/shipping-bills/shipping-bill-form-service'
 import { shippingBillService } from '@/shipping-bills/shipping-bill-service'
 import { navigate } from 'core/routing'
 import { toast } from 'core/toast-manager'
@@ -11,38 +12,40 @@ import { Table } from 'ui/basic/table'
 import { Input } from 'ui/inputs/input'
 
 export default function ListDashboard() {
-  const [bills, setBills] = useState<SavedBill[]>(() => shippingBillService.getInitialBills())
+  const [bills, setBills] = useState<SavedBill[]>([])
   const [search, setSearch] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [downloadingId, setDownloadingId] = useState<number | null>(null)
 
-  const fetchBills = async () => {
+  async function fetchBills(showSuccess = false) {
     setIsLoading(true)
+    setLoadError(false)
     try {
-      const remoteBills = await shippingBillService.list()
-      if (remoteBills && remoteBills.length > 0) {
-        setBills(remoteBills)
-        toast.success(`Loaded ${remoteBills.length} shipping bills`)
-      }
-    } catch (err: any) {
-      console.warn('Backend API listing notice:', err)
+      const loadedBills = await loadShippingBills()
+      setBills(loadedBills)
+      if (showSuccess) toast.success(`Loaded ${loadedBills.length} shipping bills`)
+    } catch {
+      setLoadError(true)
+      if (showSuccess) toast.error('Could not load shipping bills')
     } finally {
       setIsLoading(false)
     }
   }
 
   useEffect(() => {
-    fetchBills()
+    void fetchBills()
   }, [])
 
-  const handleDownloadFlatFile = async (bill: SavedBill) => {
+  async function handleDownloadFlatFile(bill: SavedBill) {
     try {
       setDownloadingId(bill.id)
       const res = await shippingBillService.downloadFlatFile(bill.id, bill)
       if (res.source === 'api') {
         toast.success('Flat file downloaded from backend API')
       } else {
-        toast.success(`Flat file (.sb) generated and downloaded for #${bill.values.jobNumber || bill.id}`)
+        const jobNumber = bill.values.jobNumber?.trim() ?? ''
+        toast.success(`Flat file (.sb) generated and downloaded for #${jobNumber.length ? jobNumber : bill.id}`)
       }
     } catch (err: any) {
       console.warn('Flat file notice:', err)
@@ -54,8 +57,8 @@ export default function ListDashboard() {
 
   const filtered = bills
     .filter((bill) => {
-      const exporter = bill.values.exporterName || ''
-      const consignee = bill.values.consigneeName || ''
+      const exporter = bill.values.exporterName ?? ''
+      const consignee = bill.values.consigneeName ?? ''
       return [
         bill.id,
         bill.values.jobNumber,
@@ -73,13 +76,9 @@ export default function ListDashboard() {
       return (isNaN(timeB) ? 0 : timeB) - (isNaN(timeA) ? 0 : timeA)
     })
 
-  const uniqueExportersCount = new Set(
-    bills.map((b) => b.values.exporterName).filter(Boolean)
-  ).size
+  const uniqueExportersCount = new Set(bills.map((bill) => bill.values.exporterId).filter(Boolean)).size
 
-  const uniqueConsigneesCount = new Set(
-    bills.map((b) => b.values.consigneeName).filter(Boolean)
-  ).size
+  const uniqueConsigneesCount = new Set(bills.map((bill) => bill.values.consigneeId).filter(Boolean)).size
 
   return (
     <div className="space-y-6">
@@ -89,8 +88,8 @@ export default function ListDashboard() {
           <p className="mt-1 text-sm text-gray-500">Create and continue the shipping bill step of each export job.</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={fetchBills} disabled={isLoading}>
-            {isLoading ? 'Syncing...' : 'Sync from API'}
+          <Button variant="outline" size="sm" onClick={() => void fetchBills(true)} disabled={isLoading}>
+            {isLoading ? 'Loading...' : 'Refresh list'}
           </Button>
           <Button onClick={() => navigate(routes.shippingBillNew)}>+ New shipping bill</Button>
         </div>
@@ -106,13 +105,13 @@ export default function ListDashboard() {
         <Card>
           <CardContent className="pt-5">
             <p className="text-xs text-gray-500">Exporters</p>
-            <p className="mt-1 text-2xl font-semibold">{uniqueExportersCount || 1}</p>
+            <p className="mt-1 text-2xl font-semibold">{uniqueExportersCount}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-5">
             <p className="text-xs text-gray-500">Businesses / Consignees</p>
-            <p className="mt-1 text-2xl font-semibold">{uniqueConsigneesCount || 1}</p>
+            <p className="mt-1 text-2xl font-semibold">{uniqueConsigneesCount}</p>
           </CardContent>
         </Card>
       </div>
@@ -132,7 +131,18 @@ export default function ListDashboard() {
               {filtered.length} {filtered.length === 1 ? 'bill' : 'bills'}
             </span>
           </div>
-          {filtered.length ? (
+          {isLoading && !bills.length ? (
+            <div className="p-8 text-center text-sm text-gray-500" role="status">
+              Loading shipping bills...
+            </div>
+          ) : loadError ? (
+            <div className="p-8 text-center" role="alert">
+              <p className="font-medium">Shipping bills could not be loaded.</p>
+              <Button className="mt-4" variant="outline" onClick={() => void fetchBills()}>
+                Retry
+              </Button>
+            </div>
+          ) : filtered.length ? (
             <Table>
               <thead>
                 <tr>
@@ -147,8 +157,8 @@ export default function ListDashboard() {
               </thead>
               <tbody>
                 {filtered.map((bill) => {
-                  const exporterName = bill.values.exporterName || '—'
-                  const consigneeName = bill.values.consigneeName || '—'
+                  const exporterName = bill.values.exporterName?.trim() ? bill.values.exporterName : '—'
+                  const consigneeName = bill.values.consigneeName?.trim() ? bill.values.consigneeName : '—'
                   const total = bill.values.invoices.reduce((sum, invoice) => sum + invoiceTotal(invoice), 0)
                   return (
                     <tr key={bill.id}>
@@ -172,14 +182,18 @@ export default function ListDashboard() {
                       <td>
                         <Badge variant="secondary">Draft</Badge>
                       </td>
-                      <td>{bill.updated && !isNaN(new Date(bill.updated).getTime()) ? new Date(bill.updated).toLocaleDateString() : '—'}</td>
+                      <td>
+                        {bill.updated && !isNaN(new Date(bill.updated).getTime())
+                          ? new Date(bill.updated).toLocaleDateString()
+                          : '—'}
+                      </td>
                       <td className="text-right">
                         <div className="flex items-center justify-end gap-2">
                           <Button
                             variant="outline"
                             size="sm"
                             disabled={downloadingId === bill.id}
-                            onClick={() => handleDownloadFlatFile(bill)}>
+                            onClick={() => void handleDownloadFlatFile(bill)}>
                             {downloadingId === bill.id ? 'Downloading...' : 'Flat File'}
                           </Button>
                           <Button

@@ -1,0 +1,10 @@
+@layer base {
+  .dark {
+    --gray-400: 148 163 184;
+    --gray-500: 174 183 198;
+  }
+
+  .dark .shipping-bill-form button[data-state] > div > span:is(.text-gray-700, .text-gray-900) {
+    color: #000000;
+  }
+}

@@ -3,13 +3,14 @@ import { init } from 'core/init'
 import { queryClient, QueryClientProvider, ReactQueryDevtools } from 'core/react-query'
 import { addInterceptors } from 'core/request'
 import { initRouter } from 'core/routing'
-import { Router } from 'core/routing/route-utils'
 import { routeToReactElement } from 'core/routing/render-route'
+import { Router } from 'core/routing/route-utils'
 import { ToastManager } from 'core/toast-manager-component'
 import { SmallScreenWarning } from 'ui/notify/small-screen-warning'
 import 'ui/styles.css'
 import { onError, onRequest, onResponse } from './shared/interceptors'
 import { routeObjects } from './shared/routes'
+import './shared/theme.css'
 
 addInterceptors({ onRequest, onResponse, onError })
 initRouter(routeObjects)
