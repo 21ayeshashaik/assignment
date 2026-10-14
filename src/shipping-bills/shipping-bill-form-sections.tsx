@@ -487,6 +487,7 @@ export function InvoiceEditor({
             label="Buyer"
             kind="business"
             parties={buyerOptions}
+            required={!buyerSame}
             onQuickAdd={() => onQuickAdd('buyer', index)}
             onAddBranch={(ownerId) => onAddBranch(ownerId, `invoices.${index}.buyerBranchId`)}
           />
